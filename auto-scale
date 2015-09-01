@@ -1,0 +1,33 @@
+#!/bin/bash
+
+file="$1"
+output="$2"
+x=$3
+y=$4
+
+if [ "$output" = "" ]; then
+    echo "Usage: $0 <image> width height"
+    exit
+fi
+
+# Find the most used colour from the four corners.
+function popular_color() {
+    file="$1"
+    width=`convert "$file" -format "%w" info:`
+    height=`convert "$file" -format "%h" info:`
+    for w in 0 $width; do
+	for h in 0 $height; do
+	    convert Betong.png -format "%[pixel:p{$w,$h}]" info:;
+	done;
+    done | sort | uniq -c | sort -g | head -n 1 | awk '{ print $2; }'
+}
+
+color=`popular_color "$file"`
+
+echo "Background color: $color"
+
+convert "$file" -bordercolor $color -trim /tmp/scale.png
+convert /tmp/scale.png -fuzz 5% -transparent "$color" /tmp/scale-transparent.png
+convert -scale ${x}x${y} /tmp/scale-transparent.png "$output"
+
+rm -f /tmp/scale-transparent.png /tmp/scale.png
