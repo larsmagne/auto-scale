@@ -15,9 +15,9 @@ function popular_color() {
     file="$1"
     width=`convert "$file" -format "%w" info:`
     height=`convert "$file" -format "%h" info:`
-    for w in 0 $width; do
-	for h in 0 $height; do
-	    convert Betong.png -format "%[pixel:p{$w,$h}]" info:;
+    for w in 0 `expr $width - 1`; do
+	for h in 0 `expr $height - 1`; do
+	    convert "$file" -format "%[pixel:p{$w,$h}]" info:;
 	done;
     done | sort | uniq -c | sort -g | head -n 1 | awk '{ print $2; }'
 }
@@ -27,7 +27,24 @@ color=`popular_color "$file"`
 echo "Background color: $color"
 
 convert "$file" -bordercolor $color -trim /tmp/scale.png
-convert /tmp/scale.png -fuzz 5% -transparent "$color" /tmp/scale-transparent.png
-convert -scale ${x}x${y} /tmp/scale-transparent.png "$output"
 
-rm -f /tmp/scale-transparent.png /tmp/scale.png
+# See if the color is "light" (on the form "srgb(203,1,25)").
+if echo "$color" | grep rgb > /dev/null; then
+    var=$(expr $(echo "$color" | sed "s/[^0-9,]//g" | sed "s/,/ + /g"))
+    if [ $var -lt 300 ]; then
+	color=black
+    fi
+fi
+
+if [ "$color" != "none" -a "$color" != "black" ]; then
+    convert /tmp/scale.png -fuzz 5% -transparent "$color" /tmp/scale-transparent.png
+    mv /tmp/scale-transparent.png /tmp/scale.png
+fi
+
+convert -scale ${x}x${y} /tmp/scale.png /tmp/scale-final.png
+
+if [ ! -e "$output" ] || ! cmp /tmp/scale-final.png "$output" >/dev/null; then
+    mv /tmp/scale-final.png "$output"
+fi
+
+rm -f /tmp/scale.png /tmp/scale-final.png
